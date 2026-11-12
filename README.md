@@ -1,6 +1,6 @@
-# 🚀 C++ Hocam — İnteraktif C++ Ders Sayfası (Hafta 1-7)
+# 🚀 C++ Hocam — İnteraktif C++ Ders Sayfası (Hafta 1-8)
 
-Nesne Yönelimli Programlama dersinin ([zyavuz610/learn-cpp](https://github.com/zyavuz610/learn-cpp), **2026-27 Güz** planı) **1-7. haftalarında** işlenen konuları anlatan, kendi kendine çalışmak için hazırlanmış interaktif bir sayfa.
+Nesne Yönelimli Programlama dersinin ([zyavuz610/learn-cpp](https://github.com/zyavuz610/learn-cpp), **2026-27 Güz** planı) **1-8. haftalarında** işlenen konuları anlatan, kendi kendine çalışmak için hazırlanmış interaktif bir sayfa.
 
 Hepsi tek bir dosyada: **`cpp-hocam.html`**. Kurulum ya da internet gerekmez.
 
@@ -44,6 +44,7 @@ Haftalara göre üniteler ve her ünitenin dersleri burada. Bitirdiğin dersin y
 | 📦 Diziler ve Stringler | 5 | Diziler, C-string, `std::string` |
 | 🗂️ 2D Diziler, enum, struct | 6 | Matrisler, enum, struct, struct dizileri |
 | 🏛️ Sınıflar ve Nesneler | 7 | class, public/private, kurucu, yıkıcı, this, new/delete, .h/.cpp |
+| ➕ Fonksiyon ve Operatör Aşırı Yükleme | 8 | Function overloading, name mangling, `extern "C"`, `this` ve metot zincirleme, `+ == ++ << >> = [] ()` operatörleri, `friend` |
 
 ### Bir dersin içinde
 - **Konu anlatımı ve kod örnekleri:** Kod kutusundaki **📋 Kopyala** kodu kopyalar. **▶ Dene** kodu kopyalayıp online derleyiciyi (onlinegdb.com) açar. Açılan sayfada editöre yapıştır (**Ctrl+V** / Mac'te **Cmd+V**) ve **Run**'a bas.

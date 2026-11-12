@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>C++ Hocam — İnteraktif C++ Dersleri (Hafta 1-7)</title>
+<title>C++ Hocam — İnteraktif C++ Dersleri (Hafta 1-8)</title>
 <style>
 :root{
   --bg:#f6f3ec; --panel:#fffdf8; --panel2:#f0ebe0; --ink:#1d2433; --ink2:#4a5468; --muted:#8a8f9c;
@@ -4976,6 +4976,1327 @@ E: d[0] = (1, 10) → 11. d[1] = (2, 3) → 5. Bitişik yazıldığı için "115
 @end
 </script>
 
+<!-- ======================= ÜNİTE 8 ======================= -->
+<script type="text/x-unit" data-id="overload" data-week="Hafta 8" data-icon="➕" data-title="Fonksiyon ve Operatör Aşırı Yükleme" data-desc="Function overloading, name mangling ve extern &quot;C&quot;, this göstericisi ve metot zincirleme, operatör aşırı yükleme (+, ==, ++, &lt;&lt;, &gt;&gt;, =, [], ()), friend fonksiyonlar.">
+=== Fonksiyon Aşırı Yükleme (Function Overloading)
+Aynı isimli ama **parametre listesi farklı** birden çok fonksiyon tanımlamaya **fonksiyon aşırı yükleme (function overloading)** denir. Derleyici, çağrıdaki argümanlara bakıp hangisinin çalışacağına **derleme anında** karar verir. Buna **statik (derleme zamanı) çok biçimlilik** denir. (Hafta 13'te göreceğimiz *dinamik* çok biçimlilik ise çalışma zamanında karar verir.)
+
+### C'de neden yoktu?
+C'de her fonksiyon adı benzersiz olmak zorunda. Bu yüzden standart C kütüphanesinde aynı işin farklı tipler için ayrı isimleri var: `abs()`, `labs()`, `fabs()`. C++'ta hepsine tek isim verebilirsin:
+```cpp
+#include <iostream>
+using namespace std;
+
+void yaz(int x)           { cout << "int: " << x << endl; }
+void yaz(double x)        { cout << "double: " << x << endl; }
+void yaz(const string& s) { cout << "string: " << s << endl; }
+void yaz(int a, int b)    { cout << "iki int: " << a << ", " << b << endl; }
+
+int main() {
+    yaz(42);               // int
+    yaz(3.14);             // double
+    yaz(string("merhaba")); // string
+    yaz(10, 20);           // iki int
+    return 0;
+}
+```
+
+### Fonksiyon imzası (signature)
+Derleyicinin iki fonksiyonu ayırt etmek için baktığı kimliğe **imza** denir.
+
+| Imzaya girer ✓ | İmzaya girmez ✗ |
+|---|---|
+| Fonksiyon adı | **Dönüş tipi** |
+| Parametre **sayısı** | Parametre **isimleri** |
+| Parametre **tipleri** | Değerle aktarımdaki `const` (`f(int)` ile `f(const int)` aynıdır) |
+| Parametre **sırası** | `typedef` / `using` takma adları |
+| `int&` / `const int&` / `int*` farkı | |
+| Üye fonksiyonda sondaki `const` | |
+
+```cpp
+int    hesapla(int x);
+double hesapla(int x);       // HATA! Sadece dönüş tipi farklı
+
+void f(int a);
+void f(int b);               // HATA! Sadece parametre ismi farklı
+
+void g(int x);
+void g(const int x);         // HATA! Aynı imza (değerle aktarım)
+
+void h(int a, double b);
+void h(double a, int b);     // GEÇERLİ: sıra farklı
+```
+
+> [!KEY] Dönüş tipi neden imzada yok?
+> `hesapla(10);` şeklinde dönüş değerini hiçbir yere atmadan çağırabilirsin. Derleyici dönüş tipine bakamaz; hangisini istediğini anlayamaz.
+
+### Üye fonksiyonlarda const ile aşırı yükleme
+```cpp
+class Kutu {
+    int deger = 5;
+public:
+    void goster()       { cout << "normal\n"; }
+    void goster() const { cout << "const\n"; }   // ayrı bir fonksiyon!
+};
+Kutu a;        a.goster();   // normal
+const Kutu b;  b.goster();   // const (const nesne sadece const fonksiyonu çağırır)
+```
+
+@q mcq
+Q: Aşağıdaki fonksiyon çiftlerinden hangisi geçerli bir aşırı yüklemedir?
+A: `int f(int);` ve `double f(int);`
+A: `void g(int x);` ve `void g(const int x);`
+A*: `void h(int);` ve `void h(double);`
+A: `void k(int a);` ve `void k(int b);`
+E: Sadece dönüş tipi, parametre ismi veya değerle aktarımdaki const farkı imzayı değiştirmez. Parametre tipi farkı (h) geçerlidir.
+@end
+
+@q out
+Q: Çıktı nedir?
+```cpp
+void yaz(int x)    { cout << "I"; }
+void yaz(double x) { cout << "D"; }
+void yaz(char x)   { cout << "C"; }
+int main() {
+    yaz(5);
+    yaz(2.5);
+    yaz('a');
+    yaz(3.0f);
+}
+```
+ANS: IDCD
+E: 5 → int (I), 2.5 → double (D), 'a' → char (C). `3.0f` float'tır; tam eşleşme yok ama float → double bir **yükseltmedir (promotion)**, int'e dönüşümden önce gelir → D.
+@end
+
+@q fill
+Q: Aynı isimde, farklı parametre listesine sahip birden çok fonksiyon tanımlamaya Türkçe ne denir? → "aşırı ______"
+ANS: yükleme ;; yukleme
+@end
+
+@q mcq
+Q: `class A { public: void f() {} void f() const {} };` tanımı için ne söylenebilir?
+A: Derleme hatası: aynı fonksiyon iki kez tanımlanmış
+A*: Geçerlidir; const nesneler için `const` olan çağrılır
+A: Geçerlidir ama ikisi de asla çağrılamaz
+A: Sadece `static` ise geçerlidir
+E: Üye fonksiyonun sonundaki `const` imzaya dahildir.
+@end
+
+=== Çözümleme Kuralları ve Belirsizlik (Ambiguity)
+Birden fazla aday varken derleyici şu sırayla **en iyi eşleşmeyi** arar:
+
+| Seviye | Ad | Örnek |
+|---|---|---|
+| 1 | **Tam eşleşme** (exact match) | `int` verdin, `f(int)` var |
+| 2 | **Yükseltme** (promotion) | `char`, `short`, `bool` → `int`; `float` → `double` |
+| 3 | **Standart dönüşüm** | `int` → `double`, `double` → `int`, `int` → `long` |
+| 4 | **Kullanıcı tanımlı dönüşüm** | Kurucu ile nesneye dönüşüm, `operator T()` |
+
+Aynı seviyede **iki eşit aday** kalırsa derleyici seçemez ve **belirsiz çağrı (ambiguous call)** hatası verir.
+
+```cpp
+void f(long x)   { cout << "long\n"; }
+void f(double x) { cout << "double\n"; }
+
+int main() {
+    f(1L);     // long (tam eşleşme)
+    f(1.5);    // double (tam eşleşme)
+    f(5);      // HATA: int → long ve int → double ikisi de standart dönüşüm
+}
+```
+> [!NOTE]
+> `f(5)` satırında `int` → `long` ve `int` → `double` ikisi de standart dönüşümdür (seviye 3), eşit uzaklıkta olduğu için **belirsizdir**. Çözüm: argümanı doğru tipe çevir: `f(5L)` ya da `f(5.0)`.
+
+### Klasik belirsizlik tuzakları
+```cpp
+// 1) Varsayılan parametre ile çakışma
+void hesapla(int a);
+void hesapla(int a, int b = 0);
+hesapla(10);        // HATA: ikisi de uygun
+
+// 2) Değer ile referans
+void yaz(int x);
+void yaz(int& x);
+int sayi = 20;
+yaz(sayi);          // HATA: ikisi de uygun
+
+// 3) Referans ile const referans: BU ÇALIŞIR
+void u(int& x)       { cout << "R"; }
+void u(const int& x) { cout << "C"; }
+int a = 1; const int b = 2;
+u(a);   // R  (const olmayan lvalue → int&)
+u(b);   // C  (const nesne int&'e bağlanamaz)
+u(7);   // C  (geçici değer sadece const&'e bağlanır)
+```
+
+@q out
+Q: Çıktı nedir?
+```cpp
+void f(long x)   { cout << "L"; }
+void f(double x) { cout << "D"; }
+void f(int x)    { cout << "I"; }
+int main() {
+    f(1);
+    f(1L);
+    f(1.5);
+    f('a');
+}
+```
+ANS: ILDI
+E: 1 → int tam eşleşme (I). 1L → long (L). 1.5 → double (D). 'a' → char'dan int'e **yükseltme** (seviye 2) dönüşümlerden (seviye 3) üstündür → I.
+@end
+
+@q mcq
+Q: Aşağıdaki kod için ne söylenebilir?
+```cpp
+void g(long x)   { }
+void g(double x) { }
+int main() { g(5); }
+```
+A: `g(long)` çağrılır
+A: `g(double)` çağrılır
+A*: Derleme hatası: belirsiz çağrı (ambiguous)
+A: Çalışma zamanı hatası
+E: `int` → `long` ve `int` → `double` aynı seviyede (standart dönüşüm). Eşit aday → belirsizlik.
+@end
+
+@q out
+Q: Çıktı nedir?
+```cpp
+void u(int& x)       { cout << "R"; }
+void u(const int& x) { cout << "C"; }
+int main() {
+    int a = 1;
+    const int b = 2;
+    u(a);
+    u(b);
+    u(7);
+}
+```
+ANS: RCC
+E: a const olmayan lvalue → `int&` (R). b const → sadece `const int&` (C). 7 geçici değer → `const int&` (C).
+@end
+
+@q mcq
+Q: Hangi çağrı **derleme hatasına** yol açar?
+```cpp
+void h(int a);
+void h(int a, int b = 0);
+```
+A: `h(1, 2);`
+A*: `h(1);`
+A: `h(1, 0);`
+A: Hiçbiri
+E: `h(1)` hem `h(int)` hem `h(int, int = 0)` ile uyumludur; ikisi de tam eşleşme → belirsiz.
+@end
+
+=== Name Mangling ve extern "C"
+### Arka planda ne oluyor?
+Derleyici aşırı yüklenmiş her fonksiyona sembol tablosunda **benzersiz bir isim** verir. Buna **name mangling (isim süsleme)** denir. GCC/Clang'da:
+
+| Kaynak kod | Sembol adı |
+|---|---|
+| `void print(int)` | `_Z5printi` |
+| `void print(double)` | `_Z5printd` |
+| `void print(int, double)` | `_Z5printid` |
+
+C derleyicisi bunu **yapmaz**: `c_add` fonksiyonunun sembol adı yalnızca `c_add`'dir.
+
+### Problem: C kütüphanesini C++'tan çağırmak
+C++ derleyicisi `c_add(int, int)` için `_Z5c_addii` ararken, C nesne dosyasında yalnızca `c_add` vardır. Sonuç, derleme geçer ama **bağlayıcı (linker)** şunu söyler:
+```text
+undefined reference to `c_add(int, int)'
+ld returned 1 exit status
+```
+
+### Çözüm: extern "C"
+`extern "C"` derleyiciye "bu fonksiyonlar için isim süsleme yapma, C kurallarını kullan" der.
+
+| Dil / Derleyici | Tanım | Sembol adı |
+|---|---|---|
+| C (`gcc`) | `int c_add(int, int);` | `c_add` |
+| C++ (`g++`) | `int c_add(int, int);` | `_Z5c_addii` |
+| C++ (`g++`) | `extern "C" int c_add(int, int);` | `c_add` ✓ |
+
+`extern "C"` C diline ait değildir; hem C hem C++ tarafından include edilecek başlık dosyalarında şu kalıp kullanılır:
+```cpp
+// ----- c_calculator.h -----
+#ifndef C_CALCULATOR_H
+#define C_CALCULATOR_H
+
+#ifdef __cplusplus          // sadece C++ derleyicisi bu makroyu tanımlar
+extern "C" {
+#endif
+
+int c_add(int a, int b);
+int c_multiply(int a, int b);
+
+#ifdef __cplusplus
+}
+#endif
+#endif
+```
+```c
+// ----- c_calculator.c -----
+#include <stdio.h>
+#include "c_calculator.h"
+int c_add(int a, int b)      { printf("[C] %d + %d\n", a, b); return a + b; }
+int c_multiply(int a, int b) { printf("[C] %d * %d\n", a, b); return a * b; }
+```
+```cpp
+// ----- main.cpp -----
+#include <iostream>
+#include "c_calculator.h"
+using namespace std;
+
+double topla(double a, double b) { return a + b; }       // C++ aşırı yüklemesi
+string topla(const string& a, const string& b) { return a + " " + b; }
+
+int main() {
+    cout << c_add(15, 25) << endl;          // C fonksiyonu
+    cout << c_multiply(6, 7) << endl;
+    cout << topla(3.14, 2.71) << endl;      // C++ fonksiyonu
+    cout << topla(string("Bilgisayar"), string("Muhendisligi")) << endl;
+    return 0;
+}
+```
+İki aşamada derle: önce C dosyasını `gcc` ile, sonra hepsini `g++` ile bağla:
+```bash
+gcc -c c_calculator.c -o c_calculator.o
+g++ main.cpp c_calculator.o -o program
+./program
+```
+
+@q mcq
+Q: Başlık dosyasında `extern "C"` unutulursa ve C++ dosyası `gcc` ile derlenmiş bir C fonksiyonunu çağırırsa hangi aşamada, nasıl bir hata alırsın?
+A: Önişlemci aşamasında "file not found"
+A: Derleyici aşamasında sözdizimi hatası
+A*: Bağlayıcı aşamasında "undefined reference"
+A: Program çalışır ama yanlış sonuç verir
+E: Derleme geçer, ama linker `_Z5c_addii` sembolünü bulamaz çünkü C nesne dosyasında yalnızca `c_add` vardır.
+@end
+
+@q fill
+Q: C++ derleyicisinin aşırı yüklenmiş fonksiyonlara parametre tiplerine göre benzersiz sembol adı vermesine ne denir? (İngilizce, iki kelime)
+ANS: name mangling ;; mangling
+E: Türkçesi "isim süsleme".
+@end
+
+@q mcq
+Q: `#ifdef __cplusplus` satırı başlık dosyasında ne işe yarar?
+A: Dosyayı iki kez eklenmekten korur
+A*: `extern "C"` bloğunun yalnızca C++ derleyicisi tarafından görülmesini sağlar
+A: C++ standardını seçer
+A: Yorum satırı başlatır
+E: `extern "C"` C diline ait değildir; C derleyicisi bu satırları atlamalıdır. `__cplusplus` makrosunu yalnızca C++ derleyicileri tanımlar.
+@end
+
+=== this Göstericisi ve Metot Zincirleme
+### Bellekte ne olur?
+`Saat` sınıfından 100 nesne üretirsen her nesnenin **kendi** `saat, dk, sn` değişkenleri bellekte ayrı yer tutar. Ama üye fonksiyonların makine kodu **tek bir kopya** olarak kod bölümünde durur.
+
+Peki `c1.yazdir()` ile `c2.yazdir()` aynı kodu çalıştırırken hangi nesnenin verisini yazacağını nereden bilir? Cevap: **gizli parametre**.
+```cpp
+// Senin yazdığın:
+myClock.setTime(14, 45, 15);
+
+// Derleyicinin arka planda ürettiği:
+Clock::setTime(&myClock, 14, 45, 15);
+
+// Fonksiyonun gerçek başlığı:
+void Clock::setTime(Clock* const this, int h, int m, int s) {
+    this->hours = h;  this->minutes = m;  this->seconds = s;
+}
+```
+Yani `this`, **fonksiyonu çağıran nesnenin adresini** tutan örtük bir göstericidir.
+
+### this'in özellikleri
+- Tipi `Sinif* const`'tur: gösterdiği adres değiştirilemez (`this = &baska;` hata).
+- `const` üye fonksiyonda tipi `const Sinif* const` olur: üyeler değiştirilemez.
+- **`static` fonksiyonlarda `this` yoktur.** Çünkü static fonksiyon nesneye değil sınıfa aittir; ortada bir nesne adresi yok.
+
+### this'in 5 kullanım alanı
+| # | Kullanım | Örnek |
+|---|---|---|
+| 1 | Parametre ile üye aynı isimdeyse ayırt etmek | `this->saat = saat;` |
+| 2 | **Metot zincirleme** | `return *this;` |
+| 3 | Kendine atama kontrolü | `if (this == &diger) return *this;` |
+| 4 | Nesnenin kendisini başka yere vermek | `log(*this);` |
+| 5 | İki referansın aynı nesne olup olmadığına bakmak | `return this == &diger;` |
+
+### Metot zincirleme (method chaining)
+Her fonksiyon `*this`'i **referansla** döndürürse çağrılar arka arkaya yazılabilir:
+```cpp
+#include <iostream>
+#include <iomanip>
+using namespace std;
+
+class Saat {
+    int saat, dk, sn;
+public:
+    Saat(int saat = 0, int dk = 0, int sn = 0) {
+        this->saat = saat;               // kullanım 1: isim gölgelemesi
+        this->dk = dk;
+        this->sn = sn;
+    }
+    Saat& setSaat(int s) { saat = (s >= 0 && s < 24) ? s : 0; return *this; }
+    Saat& setDk(int d)   { dk   = (d >= 0 && d < 60) ? d : 0; return *this; }
+    Saat& setSn(int s)   { sn   = (s >= 0 && s < 60) ? s : 0; return *this; }
+
+    void yazdir() const {
+        cout << setfill('0') << setw(2) << saat << ":"
+             << setw(2) << dk << ":" << setw(2) << sn << endl;
+    }
+    bool ayniMi(const Saat& diger) const { return this == &diger; }   // kullanım 5
+};
+
+int main() {
+    Saat s1(9, 15, 30), s2;
+    s1.setSaat(21).setDk(45).setSn(59).yazdir();    // 21:45:59
+    Saat& ref = s1;
+    cout << s1.ayniMi(ref) << s1.ayniMi(s2) << endl;  // 10
+    return 0;
+}
+```
+
+> [!WARN] Neden `Saat&`, neden `Saat` değil?
+> Dönüş tipini `Saat` (değer) yazarsan `return *this;` nesnenin **geçici bir kopyasını** üretir. Zincirdeki sonraki çağrı asıl nesneyi değil bu kopyayı değiştirir ve ifade bitince kopya yok olur. Asıl nesne ilk çağrıdan sonra güncellenmemiş kalır.
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class Say {
+    int n;
+public:
+    Say(int n = 0) : n(n) {}
+    Say& ekle(int x)  { n += x; return *this; }
+    Say  ekle2(int x) { n += x; return *this; }
+    int al() const { return n; }
+};
+int main() {
+    Say a(1), b(1);
+    a.ekle(2).ekle(3);
+    b.ekle2(2).ekle2(3);
+    cout << a.al() << " " << b.al();
+}
+```
+ANS: 6 3
+E: `a`: referans döndüğü için zincir aynı nesnede çalışır → 1+2+3 = 6. `b`: ilk `ekle2(2)` b'yi 3 yapar ama kopya döner; `ekle2(3)` kopyayı 6 yapar, kopya yok olur. b = 3 kalır.
+@end
+
+@q mcq
+Q: Neden `static` üye fonksiyonların içinde `this` kullanılamaz?
+A: Çünkü static fonksiyonlar özel (private) olmak zorundadır
+A*: Çünkü static fonksiyon bir nesneye değil sınıfa aittir; çağrıldığında ortada bir nesne adresi yoktur
+A: Çünkü static fonksiyonlar parametre alamaz
+A: Çünkü `this` sadece kurucuda kullanılabilir
+@end
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class T {
+public:
+    bool ayni(const T& o) const { return this == &o; }
+};
+int main() {
+    T a, b;
+    T& r = a;
+    cout << a.ayni(r) << a.ayni(b) << a.ayni(a);
+}
+```
+ANS: 101
+E: `r`, `a`'nın takma adıdır → aynı adres (1). `b` ayrı nesne (0). `a.ayni(a)` → 1.
+@end
+
+@q mcq
+Q: `const` bir üye fonksiyonun içinde `this`'in tipi nedir? (sınıf adı `Saat`)
+A: `Saat*`
+A: `Saat* const`
+A*: `const Saat* const`
+A: `Saat&`
+E: const fonksiyonda hem adres hem gösterilen nesne değiştirilemez.
+@end
+
+=== Operatör Aşırı Yüklemeye Giriş
+Operatör aşırı yükleme, `+`, `==`, `<<` gibi **mevcut operatörlerin kendi sınıfın için anlam kazanmasıdır**. Böylece `Complex c3 = c1 + c2;`, `cout << saat;`, `if (s1 == s2)` gibi okunaklı kod yazabilirsin. Fonksiyonun adı `operator` anahtar kelimesi + sembolden oluşur: `operator+`, `operator==`, `operator<<`.
+
+### Kurallar
+1. **Yeni operatör icat edilemez** (`**`, `<>` gibi).
+2. **Öncelik ve birleşme yönü değişmez** (`*` yine `+`'dan önce yapılır).
+3. **Temel tiplerin davranışı değiştirilemez**: en az bir operand sınıf türünden olmalı (`int + int` değişmez).
+4. Operandların **sayısı** değişmez (ikili operatör tekli olamaz).
+5. **Aşırı yüklenemeyen** 5 operatör:
+
+| Operatör | Adı |
+|---|---|
+| `.` | nokta (üye erişimi) |
+| `.*` | üye gösterici erişimi |
+| `::` | kapsam çözünürlüğü |
+| `?:` | koşul (ternary) |
+| `sizeof` | boyut |
+
+### Üye fonksiyon mu, friend mi?
+**1) Üye fonksiyon:** `a + b` → `a.operator+(b)`. Sol operand **mutlaka** o sınıfın nesnesidir.
+
+**2) Üye olmayan (genelde `friend`) fonksiyon:** `a + b` → `operator+(a, b)`. `friend` anahtar kelimesi bu fonksiyona sınıfın `private` üyelerine erişme izni verir. `friend` fonksiyon üye **değildir**, sınıfın içinde sadece bildirilir; gövdesi dışarıda yazılır.
+
+```cpp
+class Kutu {
+    double genislik;
+public:
+    void setGenislik(double g) { genislik = g; }
+    friend void yazGenislik(Kutu k);     // friend bildirimi
+};
+void yazGenislik(Kutu k) {               // sıradan fonksiyon
+    cout << "Genislik: " << k.genislik << endl;   // private'a erişebilir
+}
+```
+
+> [!KEY] Değişme (commutativity) sorunu
+> `c1 + 5.0` üye fonksiyonla çözülür (`c1.operator+(5.0)`). Ama `5.0 + c1` yazınca sol operand `double`'dır; `double`'ın üyesi yok. Bu durumda **üye olmayan (friend) fonksiyon zorunludur**: `operator+(double, const Complex&)`.
+
+> [!NOTE]
+> Bazı operatörler **sadece üye** olabilir: `=`, `[]`, `()`, `->`. `<<` ve `>>` ise (sol operand `cout`/`cin` olduğu için) **üye olamaz**, friend olmalıdır.
+
+@q mcq
+Q: Aşağıdakilerden hangisi aşırı yüklenebilir?
+A: `::`
+A: `?:`
+A: `sizeof`
+A*: `[]`
+E: `.`, `.*`, `::`, `?:` ve `sizeof` aşırı yüklenemez.
+@end
+
+@q fill
+Q: `s1 - s2` ifadesi üye fonksiyon olarak aşırı yüklendiyse derleyici bunu hangi çağrıya çevirir? (boşluksuz yaz)
+ANS: s1.operator-(s2)
+@end
+
+@q mcq
+Q: `Complex` sınıfında sadece üye `operator+(double)` varsa hangi ifade **derlenmez**?
+A: `c1 + 5.0`
+A*: `5.0 + c1`
+A: `c1 + 2`
+A: `c1.operator+(1.5)`
+E: Sol operand double olduğu için üye fonksiyon çağrılamaz. Çözüm: `friend Complex operator+(double, const Complex&)`.
+@end
+
+@q mcq
+Q: `friend` fonksiyon için hangisi **doğrudur**?
+A: Sınıfın üye fonksiyonudur
+A: `this` göstericisine sahiptir
+A*: Sınıfın private üyelerine erişebilen, üye olmayan bir fonksiyondur
+A: Sadece sınıf içinde tanımlanabilir
+@end
+
+=== İkili ve İlişkisel Operatörler (+, -, *, ==, <)
+### İkili aritmetik operatör
+Hocanın `Box` örneğindeki gibi, iki nesneyi toplayıp **yeni bir nesne** döndürürüz (operandlar değişmez):
+```cpp
+#include <iostream>
+using namespace std;
+
+class Complex {
+    double re, im;
+public:
+    Complex(double r = 0, double i = 0) : re(r), im(i) {}
+
+    // c1 + c2  →  c1.operator+(c2)
+    Complex operator+(const Complex& o) const {
+        return Complex(re + o.re, im + o.im);
+    }
+    Complex operator-(const Complex& o) const {
+        return Complex(re - o.re, im - o.im);
+    }
+    // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+    Complex operator*(const Complex& o) const {
+        return Complex(re * o.re - im * o.im, re * o.im + im * o.re);
+    }
+    void yazdir() const { cout << re << " + " << im << "i" << endl; }
+
+    // 10.0 + c1  →  operator+(10.0, c1)
+    friend Complex operator+(double s, const Complex& c) {
+        return Complex(s + c.re, c.im);
+    }
+};
+
+int main() {
+    Complex c1(2.5, 3), c2(1.5, 2);
+    Complex c3 = c1 + c2;       // 4 + 5i
+    Complex c4 = 10.0 + c1;     // 12.5 + 3i
+    c3.yazdir();
+    c4.yazdir();
+    return 0;
+}
+```
+Parametre `const Complex&` (kopya yok, değişmez), fonksiyon sonu `const` (sol operand da değişmez) yapılır.
+
+> [!TIP] Bileşik atama (`+=`, `-=`) farklıdır
+> `a += b` nesnenin **kendisini** değiştirir, bu yüzden `Complex&` döndürür: `Complex& operator+=(const Complex& o) { re += o.re; im += o.im; return *this; }`
+
+### İlişkisel operatörler
+`==`, `!=`, `<`, `>`, `<=`, `>=` geriye daima **`bool`** döndürür. İyi pratik: birini yaz, diğerlerini onun üzerinden türet.
+```cpp
+class Zaman {
+    int toplamSn;
+public:
+    Zaman(int s) : toplamSn(s) {}
+    bool operator==(const Zaman& o) const { return toplamSn == o.toplamSn; }
+    bool operator<(const Zaman& o)  const { return toplamSn <  o.toplamSn; }
+    bool operator!=(const Zaman& o) const { return !(*this == o); }   // == üzerinden
+    bool operator>(const Zaman& o)  const { return o < *this; }       // < üzerinden
+};
+```
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class V {
+public:
+    int x, y;
+    V(int x = 0, int y = 0) : x(x), y(y) {}
+    V operator+(const V& o) const { return V(x + o.x, y + o.y); }
+    V operator*(int k) const { return V(x * k, y * k); }
+};
+int main() {
+    V a(1, 2), b(3, 4);
+    V c = a + b * 2;
+    cout << c.x << "," << c.y;
+}
+```
+ANS: 7,10
+E: Öncelik değişmez: önce `b * 2` = (6, 8), sonra `a + (6, 8)` = (7, 10).
+@end
+
+@q mcq
+Q: Yalnızca üye `V operator*(int k) const` tanımlıysa hangi ifade derlenmez?
+A: `v * 3`
+A*: `3 * v`
+A: `v * 3 * 2`
+A: `(v * 3) * 2`
+E: `3 * v` için sol operand `int`. Çözüm: üye olmayan `V operator*(int, const V&)`.
+@end
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class Z {
+    int s;
+public:
+    Z(int s) : s(s) {}
+    bool operator<(const Z& o) const { return s < o.s; }
+    bool operator==(const Z& o) const { return s == o.s; }
+    bool operator!=(const Z& o) const { return !(*this == o); }
+};
+int main() {
+    Z a(3), b(5), c(3);
+    cout << (a < b) << (b < a) << (a == c) << (a != c) << (a != b);
+}
+```
+ANS: 10101
+E: a<b → 1, b<a → 0, a==c → 1, a!=c → 0, a!=b → 1.
+@end
+
+@q mcq
+Q: `a += b` için operatör fonksiyonu genelde ne döndürür?
+A: `void`
+A: `bool`
+A*: Nesnenin kendisine referans (`Sinif&`)
+A: Yeni bir nesne (`Sinif`)
+E: `+=` nesneyi yerinde değiştirir. `*this` referansla döndürülürse `(a += b) += c` gibi zincirler de çalışır.
+@end
+
+=== Tekli Operatörler ve ++ / --
+Tekli (unary) operatörler tek operand alır: `-x`, `!x`, `++x`, `x++`. Üye fonksiyon olarak **parametresiz** yazılır.
+
+### Tekli eksi
+`-d` ifadesi matematikte `d`'yi değiştirmez; yeni bir değer üretir. Bu yüzden fonksiyon `const` olmalı ve **yeni nesne** döndürmelidir:
+```cpp
+class Mesafe {
+    int feet, inches;
+public:
+    Mesafe(int f = 0, int i = 0) : feet(f), inches(i) {}
+    Mesafe operator-() const { return Mesafe(-feet, -inches); }   // d1 = -d  →  d.operator-()
+    void yazdir() const { cout << "F:" << feet << " I:" << inches << endl; }
+};
+```
+> [!HOCA]
+> Hocanın `unary-operator.cpp` örneğinde `operator-()` içinde `feet = -feet;` yazıyor, yani `-D1;` satırı **D1'in kendisini değiştiriyor**. Derste amaç sözdizimini göstermekti; ama doğrusu yukarıdaki gibi nesneyi değiştirmeden yeni nesne dönmektir. `-x` yazınca `x` değişmemeli!
+
+### Ön ek (prefix) ve son ek (postfix) artırma
+İki form da `operator++` adını taşır. Derleyici ayırt etsin diye son ek forma **kukla bir `int` parametresi** eklenir (bu `int` hiç kullanılmaz):
+
+| Form | Fonksiyon | Ne döndürür |
+|---|---|---|
+| `++x` (prefix) | `Sinif& operator++()` | Artırılmış **nesnenin kendisi** (referans) |
+| `x++` (postfix) | `Sinif operator++(int)` | Artırmadan önceki **eski kopya** (değer) |
+
+```cpp
+class Sayac {
+    int deger;
+public:
+    Sayac(int d = 0) : deger(d) {}
+
+    Sayac& operator++() {            // ++s
+        ++deger;
+        return *this;
+    }
+    Sayac operator++(int) {          // s++  (int = kukla)
+        Sayac eski = *this;          // eski hali sakla
+        ++deger;                     // artır
+        return eski;                 // eskisini döndür
+    }
+    int get() const { return deger; }
+};
+```
+Postfix **değerle** döner çünkü eski halin kopyası, artırmadan sonra yok olacak yerel bir nesnedir. Referansla dönmek yok olmuş nesneye referans olurdu (tanımsız davranış).
+
+> [!TIP]
+> Performans için döngülerde `i++` yerine `++i` tercih edilir: postfix gereksiz bir kopya üretir. Temel tiplerde fark yoktur, ama nesnelerde vardır.
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class N {
+public:
+    int v;
+    N(int v) : v(v) {}
+    N& operator++()   { ++v; return *this; }
+    N operator++(int) { N eski = *this; ++v; return eski; }
+};
+int main() {
+    N a(5);
+    N b = a++;
+    N c = ++a;
+    cout << a.v << b.v << c.v;
+}
+```
+ANS: 757
+E: `b = a++` → b=5 (eski), a=6. `c = ++a` → a=7, c=7. Sıra: a, b, c = 7, 5, 7.
+@end
+
+@q mcq
+Q: Son ek (postfix) `operator++` fonksiyonunu derleyici ön ek olandan nasıl ayırt eder?
+A: Fonksiyon adı farklıdır (`operator_post++`)
+A*: Kukla bir `int` parametresi vardır: `operator++(int)`
+A: Dönüş tipi `void` olur
+A: `postfix` anahtar kelimesi yazılır
+@end
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class D {
+public:
+    int f;
+    D(int f) : f(f) {}
+    D operator-() const { return D(-f); }
+};
+int main() {
+    D a(4);
+    D b = -a;
+    D c = -b;
+    cout << a.f << b.f << c.f;
+}
+```
+ANS: 4-44
+E: `-a` yeni bir nesne üretir, a değişmez (4). b = -4. `-b` → c = 4. Bitişik yazılınca "4-44".
+@end
+
+@q mcq
+Q: Postfix `operator++(int)` neden referans değil **değer** döndürür?
+A: Daha hızlı olduğu için
+A: Dilin zorunlu kıldığı bir sözdizimi kuralı olduğu için
+A*: Döndürülen, fonksiyon içindeki yerel `eski` kopyadır; fonksiyon bitince yok olacağından referans geçersiz olurdu
+A: Referans dönmek `int` parametresiyle çakıştığı için
+@end
+
+=== Akış Operatörleri: << ve >>
+`cout << nesne;` ve `cin >> nesne;` yazabilmek için `<<` ve `>>` operatörlerini aşırı yükleriz.
+
+### Neden üye fonksiyon olamaz?
+`cout << d` ifadesinde **sol operand `cout`** (`ostream` nesnesi), yani senin sınıfın değil. Üye fonksiyon olsaydı `cout.operator<<(d)` anlamına gelirdi ve `ostream` sınıfını değiştirmen gerekirdi. Çözüm: **üye olmayan fonksiyon**, `private` verilere erişmek için de `friend`.
+
+```cpp
+#include <iostream>
+using namespace std;
+
+class Mesafe {
+    int feet, inches;
+public:
+    Mesafe(int f = 0, int i = 0) : feet(f), inches(i) {}
+
+    // cout << d   →  operator<<(cout, d)
+    friend ostream& operator<<(ostream& out, const Mesafe& d) {
+        out << "F: " << d.feet << " I: " << d.inches;
+        return out;                       // zincirleme için akışı geri ver
+    }
+    // cin >> d    →  operator>>(cin, d)
+    friend istream& operator>>(istream& in, Mesafe& d) {
+        in >> d.feet >> d.inches;
+        return in;
+    }
+};
+
+int main() {
+    Mesafe d1(11, 10), d2;
+    cin >> d2;                                   // örn: 5 7
+    cout << "Birinci: " << d1 << endl;
+    cout << "Ikinci : " << d2 << endl;
+    return 0;
+}
+```
+- `ostream` (`cout`, `ofstream` baba tipi) → çıktı. `istream` (`cin`, `ifstream`) → girdi.
+- İlk parametre **referans** olmalı (akış nesneleri kopyalanamaz).
+- Dönüş tipi **`ostream&` / `istream&`** olmalı ki `cout << a << b << c;` zinciri çalışsın.
+- `<<` içinde `const Mesafe&`, `>>` içinde `const` **olmayan** `Mesafe&` (çünkü nesne doldurulacak).
+- Hocanın notu: `ofstream` bir `ostream` olduğundan aynı operatör dosyaya yazarken de çalışır: `ofile << d;`
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class P {
+    int x, y;
+public:
+    P(int x, int y) : x(x), y(y) {}
+    friend ostream& operator<<(ostream& os, const P& p) {
+        return os << "(" << p.x << "," << p.y << ")";
+    }
+};
+int main() {
+    P a(1, 2), b(3, 4);
+    cout << a << b << endl;
+}
+```
+ANS: (1,2)(3,4)
+E: `cout << a` ifadesi `cout` döndürdüğü için `<< b` zincire devam eder.
+@end
+
+@q fill
+Q: `cout << a << b;` zincirinin çalışması için `operator<<` fonksiyonu hangi tipi döndürmelidir? (örn. `ostream&` yazılışıyla)
+ANS: ostream& ;; ostream
+@end
+
+@q mcq
+Q: Neden `operator<<(ostream&, const Sinif&)` üye fonksiyon olarak yazılamaz?
+A: Çünkü `<<` aşırı yüklenemez
+A*: Çünkü sol operand `cout`'tur, kendi sınıfımız değil; üye fonksiyon sol operandın sınıfında olmak zorundadır
+A: Çünkü üye fonksiyonlar `const` olamaz
+A: Çünkü `friend` yoksa derlenmez
+@end
+
+@q mcq
+Q: `operator>>(istream& in, Mesafe& d)` fonksiyonunda `d` neden `const` değildir?
+A: Unutulduğu için
+A: `cin` const olmadığı için
+A*: Okunan değerler nesnenin içine yazılacak, yani nesne değişecek
+A: Çünkü `>>` her zaman üye fonksiyondur
+@end
+
+=== Atama (=), İndis ([]), Fonksiyon Çağrısı () ve <=>
+### Atama operatörü `operator=`
+`a = b;` için kullanılır. Pointer ve dinamik bellek tutan sınıflarda **derin kopya** gerektirir. Derleyicinin otomatik ürettiği atama **sığ kopya** yapar; iki nesne aynı belleği gösterir ve ikisi de silinince çift `delete` hatası çıkar.
+```cpp
+class Dizi {
+    int* veri;
+    int boyut;
+public:
+    Dizi(int n = 0) : veri(new int[n]()), boyut(n) {}
+    ~Dizi() { delete[] veri; }
+
+    Dizi& operator=(const Dizi& o) {
+        if (this == &o) return *this;       // 1) kendine atama kontrolü!
+        delete[] veri;                      // 2) eski belleği bırak
+        boyut = o.boyut;
+        veri = new int[boyut];              // 3) yeni bellek ayır
+        for (int i = 0; i < boyut; i++)     // 4) elemanları kopyala
+            veri[i] = o.veri[i];
+        return *this;                       // 5) zincir: a = b = c
+    }
+};
+```
+> [!WARN] Kendine atama kontrolü
+> `a = a;` yazılırsa kontrol olmadan önce `delete[] veri` çalışır, sonra silinmiş belleği kopyalamaya çalışırsın. `if (this == &o)` bunu önler.
+
+### İndis operatörü `operator[]`
+Nesneyi dizi gibi kullanmayı sağlar. **Referans döndürmelidir**; yoksa `d[1] = 99;` gibi atama yapılamaz.
+```cpp
+class GuvenliDizi {
+    int a[5] = {0, 1, 2, 3, 4};
+public:
+    int& operator[](int i) {
+        if (i < 0 || i >= 5) {
+            cout << "Sinir disi indis!" << endl;
+            return a[0];
+        }
+        return a[i];
+    }
+};
+GuvenliDizi g;
+g[2] = 50;          // atama için referans şart
+cout << g[2];       // 50
+cout << g[12];      // "Sinir disi indis!" sonra a[0] = 0
+```
+
+### Fonksiyon çağrı operatörü `operator()` (functor)
+Nesneyi fonksiyon gibi çağırabilirsin. Herhangi sayıda parametre alabilir. (STL'de çok kullanılır.)
+```cpp
+class Katla {
+    int k;
+public:
+    Katla(int k) : k(k) {}
+    int operator()(int x) const { return x * k; }
+};
+Katla besle(5);
+cout << besle(10);     // 50  (nesne fonksiyon gibi çağrıldı)
+```
+
+### Ekstra: C++20 uzay gemisi `<=>`
+Tek satırla altı karşılaştırma operatörünü (`< <= == != >= >`) derleyiciye ürettirir:
+```cpp
+#include <compare>
+class Puan {
+    int p;
+public:
+    Puan(int p) : p(p) {}
+    auto operator<=>(const Puan&) const = default;   // C++20
+};
+```
+`g++ -std=c++20` ile derle.
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class Dz {
+    int a[3];
+public:
+    Dz() { a[0] = 10; a[1] = 20; a[2] = 30; }
+    int& operator[](int i) { return a[i]; }
+};
+int main() {
+    Dz d;
+    d[1] = 99;
+    d[2] += 5;
+    cout << d[0] << " " << d[1] << " " << d[2];
+}
+```
+ANS: 10 99 35
+E: `operator[]` referans döndürdüğü için `d[1] = 99` ve `d[2] += 5` doğrudan diziyi değiştirir.
+@end
+
+@q mcq
+Q: `operator[]` neden `int` yerine `int&` döndürür?
+A: Daha az bellek harcadığı için
+A*: `d[i] = deger;` gibi atamalar yapılabilsin diye (döndürülen şey bir lvalue olmalı)
+A: `[]` için zorunlu bir sözdizimi kuralıdır
+A: `const` olabilmesi için
+@end
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class Kat {
+    int k;
+public:
+    Kat(int k) : k(k) {}
+    int operator()(int x) const { return x * k; }
+};
+int main() {
+    Kat uc(3), bes(5);
+    cout << uc(4) << " " << bes(uc(2));
+}
+```
+ANS: 12 30
+E: `uc(4)` = 12. `uc(2)` = 6, `bes(6)` = 30.
+@end
+
+@q mcq
+Q: Sınıfın içinde ham pointer (`int*`) ile `new` yapılmışsa, derleyicinin ürettiği varsayılan `operator=` ne yapar?
+A: Derin kopya
+A*: Sığ kopya: iki nesne aynı belleği gösterir, yıkıcılar aynı belleği iki kez silmeye çalışır
+A: Hata verir, derlenmez
+A: Belleği otomatik temizler
+E: Bu yüzden pointer tutan sınıflarda kendi `operator=` (ve kopya kurucu, yıkıcı) yazılmalıdır (Hafta 12: Üçler Kuralı).
+@end
+
+@q mcq
+Q: `operator=` içinde `if (this == &o) return *this;` satırı ne işe yarar?
+A: Hızlandırmak için
+A: Atama sonucunu `const` yapmak için
+A*: `a = a;` gibi kendine atamada belleği silip sonra silinmiş veriyi kopyalamayı önlemek için
+A: Kurucuyu çağırmak için
+@end
+
+@task Aşırı Yüklenmiş alan() Fonksiyonları
+Aynı `alan` ismini kullanarak şu şekillerin alanını hesaplayan fonksiyonlar yaz:
+- `alan(double r)` → daire (π·r², π = 3.14159)
+- `alan(double en, double boy)` → dikdörtgen
+- `alan(double a, double b, double c)` → üçgen (Heron: s = (a+b+c)/2, alan = √(s(s-a)(s-b)(s-c)))
+- `alan(int kenar)` → kare
+
+`main`'de her birini çağır. **Dikkat:** `alan(5)` kare (int), `alan(5.0)` daire (double) olur!
+HINT: Karekök için `<cmath>` içindeki `sqrt` kullan.
+SOL:
+```cpp
+#include <iostream>
+#include <cmath>
+using namespace std;
+
+const double PI = 3.14159;
+
+double alan(double r)                   { return PI * r * r; }                // daire
+double alan(double en, double boy)      { return en * boy; }                  // dikdörtgen
+double alan(double a, double b, double c) {                                   // üçgen (Heron)
+    double s = (a + b + c) / 2;
+    return sqrt(s * (s - a) * (s - b) * (s - c));
+}
+int alan(int kenar)                     { return kenar * kenar; }             // kare
+
+int main() {
+    cout << "Daire (r=2)      : " << alan(2.0) << endl;
+    cout << "Dikdortgen 3x4   : " << alan(3.0, 4.0) << endl;
+    cout << "Ucgen 3-4-5      : " << alan(3.0, 4.0, 5.0) << endl;
+    cout << "Kare (kenar=5)   : " << alan(5) << endl;
+    return 0;
+}
+```
+@end
+
+@task Zincirleme Hesap Makinesi
+`Hesap` sınıfı yaz. private: `double sonuc`. Fonksiyonlar **zincirleme** çağrılabilsin:
+- `Hesap(double baslangic = 0)`
+- `Hesap& topla(double)`, `Hesap& cikar(double)`, `Hesap& carp(double)`
+- `Hesap& bol(double)` → 0'a bölmeyi reddet ve uyarı yaz.
+- `Hesap& sifirla()`
+- `double al() const`
+
+Test: `Hesap h(10); h.topla(5).carp(2).cikar(6).bol(4); cout << h.al();` → **6**
+(10+5=15, ×2=30, −6=24, ÷4=6)
+HINT: Her fonksiyon sonunda `return *this;` ve dönüş tipi `Hesap&` olmalı.
+SOL:
+```cpp
+#include <iostream>
+using namespace std;
+
+class Hesap {
+    double sonuc;
+public:
+    Hesap(double baslangic = 0) : sonuc(baslangic) {}
+    Hesap& topla(double x) { sonuc += x; return *this; }
+    Hesap& cikar(double x) { sonuc -= x; return *this; }
+    Hesap& carp(double x)  { sonuc *= x; return *this; }
+    Hesap& bol(double x) {
+        if (x == 0) cout << "Sifira bolunemez!" << endl;
+        else sonuc /= x;
+        return *this;
+    }
+    Hesap& sifirla() { sonuc = 0; return *this; }
+    double al() const { return sonuc; }
+};
+
+int main() {
+    Hesap h(10);
+    h.topla(5).carp(2).cikar(6).bol(4);
+    cout << h.al() << endl;          // 6
+    h.bol(0).sifirla().topla(1);     // uyari, sonra 1
+    cout << h.al() << endl;          // 1
+    return 0;
+}
+```
+@end
+
+@task Karmaşık Sayı (Complex) Kütüphanesi
+`Complex` sınıfı yaz (private: `double re, im`). Şu operatörleri aşırı yükle:
+- `+`, `-`, `*` (iki Complex arası, üye fonksiyon)
+- `+` ile `double + Complex` (friend)
+- `==`, `!=`
+- `+=`
+- `<<` (örn. `3 + 4i`, im negatifse `3 - 4i`)
+- `>>` (re ve im'i sırayla oku)
+
+Test: `Complex a(1,2), b(3,-1);` → `a+b` = `4 + 1i`, `a*b` = `5 + 5i`, `5.0 + a` = `6 + 2i`
+HINT: (1+2i)(3-i) = 3 - i + 6i - 2i² = 3 + 5i + 2 = 5 + 5i. Formül: (ac - bd) + (ad + bc)i.
+SOL:
+```cpp
+#include <iostream>
+#include <cmath>
+using namespace std;
+
+class Complex {
+    double re, im;
+public:
+    Complex(double r = 0, double i = 0) : re(r), im(i) {}
+
+    Complex operator+(const Complex& o) const { return Complex(re + o.re, im + o.im); }
+    Complex operator-(const Complex& o) const { return Complex(re - o.re, im - o.im); }
+    Complex operator*(const Complex& o) const {
+        return Complex(re * o.re - im * o.im, re * o.im + im * o.re);
+    }
+    Complex& operator+=(const Complex& o) { re += o.re; im += o.im; return *this; }
+
+    bool operator==(const Complex& o) const { return re == o.re && im == o.im; }
+    bool operator!=(const Complex& o) const { return !(*this == o); }
+
+    friend Complex operator+(double s, const Complex& c) { return Complex(s + c.re, c.im); }
+
+    friend ostream& operator<<(ostream& os, const Complex& c) {
+        os << c.re << (c.im < 0 ? " - " : " + ") << fabs(c.im) << "i";
+        return os;
+    }
+    friend istream& operator>>(istream& is, Complex& c) {
+        is >> c.re >> c.im;
+        return is;
+    }
+};
+
+int main() {
+    Complex a(1, 2), b(3, -1);
+    cout << "a+b   = " << a + b << endl;      // 4 + 1i
+    cout << "a-b   = " << a - b << endl;      // -2 + 3i
+    cout << "a*b   = " << a * b << endl;      // 5 + 5i
+    cout << "5+a   = " << 5.0 + a << endl;    // 6 + 2i
+    cout << "b     = " << b << endl;          // 3 - 1i
+    a += b;
+    cout << "a+=b  = " << a << endl;          // 4 + 1i
+    cout << (a == Complex(4, 1)) << (a != b) << endl;   // 11
+    return 0;
+}
+```
+@end
+
+@task Güvenli Dizi Sınıfı (MyArray)
+Dinamik bellek kullanan bir `MyArray` sınıfı yaz (private: `int* veri; int boyut;`).
+- Kurucu `MyArray(int n)` → n elemanlı, hepsi 0.
+- **Kopya kurucu** ve `operator=` → **derin kopya**, kendine atama kontrolüyle.
+- Yıkıcı → `delete[]`.
+- `int& operator[](int i)` → sınır kontrollü: geçersiz indiste "Sinir disi!" yazsın ve ilk elemanı döndürsün.
+- `int size() const`.
+- `<<` → `[1, 2, 3]` biçiminde yazsın.
+
+Test: `MyArray a(3); a[0]=1; a[1]=2; a[2]=3; MyArray b(1); b = a; b[0] = 100; cout << a << b;` → `[1, 2, 3][100, 2, 3]` (a değişmemeli, derin kopya!)
+HINT: `operator=` sırası: kendine atama kontrolü → eski belleği `delete[]` → yeni `new int[boyut]` → elemanları kopyala → `return *this`.
+SOL:
+```cpp
+#include <iostream>
+using namespace std;
+
+class MyArray {
+    int* veri;
+    int boyut;
+public:
+    MyArray(int n = 0) : veri(new int[n]()), boyut(n) {}
+    MyArray(const MyArray& o) : veri(new int[o.boyut]), boyut(o.boyut) {
+        for (int i = 0; i < boyut; i++) veri[i] = o.veri[i];
+    }
+    ~MyArray() { delete[] veri; }
+
+    MyArray& operator=(const MyArray& o) {
+        if (this == &o) return *this;
+        delete[] veri;
+        boyut = o.boyut;
+        veri = new int[boyut];
+        for (int i = 0; i < boyut; i++) veri[i] = o.veri[i];
+        return *this;
+    }
+    int& operator[](int i) {
+        if (i < 0 || i >= boyut) {
+            cout << "Sinir disi!" << endl;
+            return veri[0];
+        }
+        return veri[i];
+    }
+    int size() const { return boyut; }
+
+    friend ostream& operator<<(ostream& os, const MyArray& m) {
+        os << "[";
+        for (int i = 0; i < m.boyut; i++) os << m.veri[i] << (i + 1 < m.boyut ? ", " : "");
+        return os << "]";
+    }
+};
+
+int main() {
+    MyArray a(3);
+    a[0] = 1; a[1] = 2; a[2] = 3;
+    MyArray b(1);
+    b = a;
+    b[0] = 100;
+    cout << a << b << endl;      // [1, 2, 3][100, 2, 3]
+    a = a;                       // kendine atama: sorun cikmamali
+    cout << a[7] << endl;        // Sinir disi! sonra 1
+    return 0;
+}
+```
+@end
+
+=== !exam
+@q mcq
+Q: Aşağıdakilerden hangisi geçerli bir fonksiyon aşırı yüklemesi **değildir**?
+A: `void f(int); void f(double);`
+A: `void f(int, double); void f(double, int);`
+A*: `int f(int); double f(int);`
+A: `void f(int&); void f(const int&);`
+E: Sadece dönüş tipi farkı yeterli değildir.
+@end
+
+@q out
+Q: Çıktı nedir?
+```cpp
+void p(int x)    { cout << "I"; }
+void p(double x) { cout << "D"; }
+void p(char x)   { cout << "C"; }
+int main() {
+    p('x'); p(1); p(1.0); p(1.0f);
+}
+```
+ANS: CIDD
+E: 'x' → char (C), 1 → int (I), 1.0 → double (D), 1.0f → float → double yükseltmesi (D).
+@end
+
+@q mcq
+Q: `void f(long); void f(double);` varken `f(5);` çağrısı için ne olur?
+A: `f(long)` çağrılır
+A: `f(double)` çağrılır
+A*: Derleme hatası (belirsiz çağrı)
+A: Çalışma zamanı hatası
+@end
+
+@q mcq
+Q: C'de yazılmış bir fonksiyonu C++ programında çağırırken `undefined reference` hatasını önlemek için ne yapılır?
+A: Fonksiyonu `static` yapmak
+A: Fonksiyonu `inline` yapmak
+A*: Prototipini `extern "C"` ile bildirmek
+A: `#include <cstdio>` eklemek
+E: `extern "C"`, isim süslemeyi kapatır.
+@end
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class Say {
+    int n;
+public:
+    Say(int n = 0) : n(n) {}
+    Say& ekle(int x) { n += x; return *this; }
+    int al() const { return n; }
+};
+int main() {
+    Say s(2);
+    s.ekle(3).ekle(4).ekle(1);
+    cout << s.al();
+}
+```
+ANS: 10
+E: 2+3+4+1 = 10. Referans dönüldüğü için her çağrı aynı nesne üzerinde çalışır.
+@end
+
+@q mcq
+Q: Aşağıdakilerden hangisi aşırı yüklenemez?
+A: `<<`
+A: `[]`
+A*: `?:`
+A: `==`
+@end
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class N {
+public:
+    int v;
+    N(int v) : v(v) {}
+    N& operator++()   { ++v; return *this; }
+    N operator++(int) { N eski = *this; ++v; return eski; }
+};
+int main() {
+    N a(1);
+    N b = ++a;
+    N c = a++;
+    cout << a.v << b.v << c.v;
+}
+```
+ANS: 322
+E: `++a` → a=2, b=2. `a++` → c=2 (eski), a=3. Sıra a, b, c = 3, 2, 2.
+@end
+
+@q mcq
+Q: `cout << nesne` için `operator<<` neden `friend` (üye olmayan) olarak yazılır?
+A: Çünkü `<<` üye olamaz diye kural yoktur, sadece alışkanlıktır
+A*: Çünkü sol operand `ostream` nesnesidir; üye fonksiyon sol operandın sınıfında olmak zorundadır
+A: Çünkü `friend` fonksiyonlar daha hızlıdır
+A: Çünkü `cout` global olduğu için
+@end
+
+@q fill
+Q: Son ek `operator++` fonksiyonunda ön ek olandan ayırt etmek için eklenen kukla parametrenin tipi nedir?
+ANS: int
+@end
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class A {
+    int v[3];
+public:
+    A() { v[0] = 1; v[1] = 2; v[2] = 3; }
+    int& operator[](int i) { return v[i]; }
+};
+int main() {
+    A a;
+    a[0] += 10;
+    a[2] = a[0] + a[1];
+    cout << a[0] << " " << a[2];
+}
+```
+ANS: 11 13
+E: a[0] = 11. a[2] = 11 + 2 = 13.
+@end
+
+@q mcq
+Q: Pointer ve `new` kullanan bir sınıfta `a = b;` yapıldığında varsayılan atama operatörü ne yapar?
+A: Derin kopya
+A*: Sığ kopya (iki nesne aynı belleği gösterir)
+A: Derleme hatası verir
+A: Belleği otomatik temizler
+@end
+
+@q mcq
+Q: `5.0 + c` ifadesinin çalışması için `Complex` sınıfına hangisi eklenmelidir?
+A: Üye `Complex operator+(double)`
+A: `Complex operator+()`
+A*: Üye olmayan `Complex operator+(double, const Complex&)` (genelde friend)
+A: `operator=`
+E: Sol operand double olduğu için üye fonksiyon çağrılamaz.
+@end
+
+@q out
+Q: Çıktı nedir?
+```cpp
+class F {
+    int k;
+public:
+    F(int k) : k(k) {}
+    int operator()(int x) const { return x + k; }
+};
+int main() {
+    F a(10), b(100);
+    cout << a(1) << " " << b(a(2));
+}
+```
+ANS: 11 112
+E: a(1) = 11. a(2) = 12, b(12) = 112.
+@end
+
+@q mcq
+Q: Hangi satır `static` bir üye fonksiyonun içinde **kullanılamaz**?
+A: Yerel değişken tanımlamak
+A: Sınıfın `static` bir üyesine erişmek
+A*: `this->x = 5;`
+A: Başka bir `static` fonksiyonu çağırmak
+E: static fonksiyonların `this` göstericisi yoktur.
+@end
+</script>
+
 <!-- ======================= SÖZLÜK ======================= -->
 <script type="text/x-glossary">
 algoritma | algorithm | Bir problemi çözmek için izlenen adımlar dizisi.
@@ -5035,6 +6356,19 @@ yıkıcı | destructor | Nesne yok edilirken çağrılan ~SinifAdi() fonksiyonu.
 this göstericisi | this pointer | Üye fonksiyonun çağrıldığı nesnenin adresi.
 üye başlatma listesi | member initializer list | Kurucuda : x(0), y(0) şeklinde başlatma.
 dinamik bellek | dynamic memory | new ile çalışma zamanında ayrılan, delete ile geri verilen bellek.
+fonksiyon aşırı yükleme | function overloading | Aynı isimli, parametre listesi farklı birden çok fonksiyon tanımlamak. Derleme zamanında seçilir.
+imza | signature | Fonksiyonu ayırt eden bilgi: ad, parametre sayısı/tipi/sırası. Dönüş tipi imzaya girmez.
+belirsiz çağrı | ambiguous call | Birden fazla aşırı yüklenmiş fonksiyonun eşit uygunlukta olması; derleme hatası.
+isim süsleme | name mangling | Derleyicinin aşırı yüklenmiş fonksiyonlara parametre tiplerine göre benzersiz sembol adı vermesi (_Z5printi).
+statik çok biçimlilik | static polymorphism | Derleme zamanında karar verilen çok biçimlilik (aşırı yükleme).
+metot zincirleme | method chaining | return *this; ile a.f().g().h() biçiminde ardışık çağrı.
+operatör aşırı yükleme | operator overloading | +, ==, << gibi operatörlerin kendi sınıfın için anlam kazanması.
+arkadaş fonksiyon | friend function | Sınıfın private üyelerine erişebilen, üye olmayan fonksiyon.
+ön ek / son ek | prefix / postfix | ++x ve x++ biçimleri. Son ek operator++(int) ile ayırt edilir.
+akış ekleme operatörü | stream insertion operator | << (cout << x). Akış çıkarma operatörü: >> (cin >> x).
+indis operatörü | subscript operator | operator[] — nesneyi dizi gibi kullanma. Referans döndürmeli.
+işlev nesnesi | functor | operator() aşırı yüklenmiş, fonksiyon gibi çağrılabilen nesne.
+kendine atama | self-assignment | a = a; durumu. operator= içinde this == &o ile kontrol edilir.
 </script>
 
 <!-- ======================= MOTOR ======================= -->
@@ -5191,7 +6525,7 @@ const GLOSS=($('script[type="text/x-glossary"]')||{textContent:''}).textContent.
 const unitById=id=>UNITS.find(u=>u.id===id);
 
 /* ---------------- XP / seri ---------------- */
-const LEVELS=['Merhaba Dünya','Noktalı Virgül Çırağı','Değişken Avcısı','Döngü Ustası','Fonksiyon Bilgesi','Pointer Cambazı','Dizi Kaşifi','Struct Mimarı','Sınıf Lideri','C++ Ninjası'];
+const LEVELS=['Merhaba Dünya','Noktalı Virgül Çırağı','Değişken Avcısı','Döngü Ustası','Fonksiyon Bilgesi','Pointer Cambazı','Dizi Kaşifi','Struct Mimarı','Sınıf Lideri','Operatör Ustası','C++ Ninjası'];
 const level=()=>Math.floor(S.xp/150)+1;
 const levelName=()=>LEVELS[Math.min(level()-1,LEVELS.length-1)];
 function touchStreak(){ const d=today(); if(S.streak.day===d) return; const y=new Date(); y.setDate(y.getDate()-1); S.streak.count=(S.streak.day===today(y))?S.streak.count+1:1; S.streak.day=d; }
@@ -5279,7 +6613,7 @@ function viewHome(){
   if(S.last){ const r=S.last.match(/#\/u\/([^/]+)\/(?:l\/(\d+)|exam)/); let label='Kaldığın yer'; if(r){ const u=unitById(r[1]); if(u) label = r[2]? `${u.title} → ${u.lessons[r[2]-1]?u.lessons[r[2]-1].title:''}` : `${u.title} → Ünite Sınavı`; }
     cont=`<button class="btn" data-act="continue">▶ Kaldığın yerden devam et</button> <span style="opacity:.85;font-size:.9rem;margin-left:8px">${esc(label)}</span>`; }
   else if(nx) cont=`<a class="btn" href="#/u/${nx.u.id}/l/${nx.l.idx+1}">🚀 Hadi başlayalım!</a>`;
-  let h=`<div class="hero"><div class="deco">{ }</div><h1>${greet}, ${esc(S.name||'C++ yolcusu')}! 👋</h1><p>${done===0?'Bu sayfa hocanın 1-7. hafta konularının tamamını adım adım anlatıyor. Ara sorular, görevler ve sınavlarla ilerle; ilerlemen bu tarayıcıda otomatik kaydedilir.':done===all.length?'Tüm dersleri bitirdin, harikasın! Şimdi Vize Provası ile kendini dene. 💪':`Toplam ${all.length} dersin ${done} tanesini bitirdin. Devam!`}</p>${cont}</div>`;
+  let h=`<div class="hero"><div class="deco">{ }</div><h1>${greet}, ${esc(S.name||'C++ yolcusu')}! 👋</h1><p>${done===0?'Bu sayfa hocanın 1-8. hafta konularının tamamını adım adım anlatıyor. Ara sorular, görevler ve sınavlarla ilerle; ilerlemen bu tarayıcıda otomatik kaydedilir.':done===all.length?'Tüm dersleri bitirdin, harikasın! Şimdi Vize Provası ile kendini dene. 💪':`Toplam ${all.length} dersin ${done} tanesini bitirdin. Devam!`}</p>${cont}</div>`;
   h+=`<div class="stats">
     <div class="stat"><div class="v">${done}/${all.length}</div><div class="k">Ders tamamlandı</div><div class="bar"><i style="width:${all.length?done*100/all.length:0}%"></i></div></div>
     <div class="stat"><div class="v">${qSolved}/${qAll}</div><div class="k">Ara soru çözüldü</div></div>
@@ -5512,7 +6846,7 @@ function viewGlossary(){
 }
 function viewHelp(){
   return `<h1>❓ Nasıl kullanılır?</h1><div class="lesson">${md(`### Bu sayfa ne?
-Hocanın (learn-cpp deposu, 2026 Güz planı) **1-7. haftalarında** işlenen bütün konuları sırayla anlatan, kendi kendine çalışma sayfası. İnternet gerekmez, tek bir HTML dosyasıdır.
+Hocanın (learn-cpp deposu, 2026 Güz planı) **1-8. haftalarında** işlenen bütün konuları sırayla anlatan, kendi kendine çalışma sayfası. İnternet gerekmez, tek bir HTML dosyasıdır.
 
 ### Nasıl çalışmalıyım?
 1. Soldan bir ünite seç, dersleri sırayla oku.
@@ -5619,7 +6953,7 @@ $('#overlay').addEventListener('click',()=>document.body.classList.remove('menu-
 /* ---------------- ilk açılış ---------------- */
 function welcome(){
   const bg=document.createElement('div'); bg.className='modal-bg';
-  bg.innerHTML=`<div class="modal"><h2>Hoş geldin! 👋</h2><p class="muted" style="margin:0">Burası senin kişisel C++ hocan. Hocanın 1-7. hafta konularının tamamı, ara sorular, görevler ve sınavlarla burada. İlerlemen otomatik kaydedilir.</p><input id="wName" placeholder="Adın ne?" autocomplete="off"><button class="btn" id="wGo" style="width:100%;justify-content:center">Başlayalım 🚀</button></div>`;
+  bg.innerHTML=`<div class="modal"><h2>Hoş geldin! 👋</h2><p class="muted" style="margin:0">Burası senin kişisel C++ hocan. Hocanın 1-8. hafta konularının tamamı, ara sorular, görevler ve sınavlarla burada. İlerlemen otomatik kaydedilir.</p><input id="wName" placeholder="Adın ne?" autocomplete="off"><button class="btn" id="wGo" style="width:100%;justify-content:center">Başlayalım 🚀</button></div>`;
   document.body.appendChild(bg);
   const fin=()=>{ S.name=$('#wName').value.trim(); save(true); bg.remove(); render(); };
   $('#wGo').onclick=fin; $('#wName').addEventListener('keydown',e=>{ if(e.key==='Enter') fin(); }); setTimeout(()=>$('#wName').focus(),50);
